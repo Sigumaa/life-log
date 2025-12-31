@@ -7,6 +7,7 @@ import { tagsRoutes } from "./routes/tags";
 import { searchRoutes } from "./routes/search";
 import { statsRoutes } from "./routes/stats";
 import { previewRoutes } from "./routes/preview";
+import { timelineRoutes } from "./routes/timeline";
 
 const app = new Hono<{ Bindings: Env }>().basePath("/api");
 
@@ -77,6 +78,7 @@ app.route("/tags", tagsRoutes);
 app.route("/search", searchRoutes);
 app.route("/stats", statsRoutes);
 app.route("/preview", previewRoutes);
+app.route("/timeline", timelineRoutes);
 
 export { app };
 export type AppType = typeof app;

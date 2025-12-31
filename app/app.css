@@ -69,11 +69,40 @@ body {
   border-bottom: 1px solid #e5e7eb;
 }
 
+.dashboard-title-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .dashboard-title {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
   color: #111827;
+}
+
+.view-toggle {
+  display: inline-flex;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.view-toggle-btn {
+  padding: 0.35rem 0.9rem;
+  border: none;
+  background: transparent;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: #6b7280;
+  transition: background 0.15s, color 0.15s;
+}
+
+.view-toggle-btn.active {
+  background: #111827;
+  color: #fff;
 }
 
 .dashboard-actions {
@@ -483,6 +512,72 @@ body {
   padding: 1.5rem;
   overflow-y: auto;
   background: #fafafa;
+}
+
+.archive-controls {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.archive-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #9ca3af;
+  margin-bottom: 0.5rem;
+}
+
+.archive-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.archive-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.archive-tab:hover {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+.archive-tab.active {
+  background: #111827;
+  color: #fff;
+  border-color: #111827;
+}
+
+.archive-tab-emoji {
+  font-size: 0.85rem;
+}
+
+.archive-view .timeline-section {
+  margin-top: 0;
+}
+
+.archive-sentinel {
+  height: 1px;
+}
+
+.archive-end {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.75rem;
+  padding: 0.5rem 0 0;
 }
 
 .tag-view {

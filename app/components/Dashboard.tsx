@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { LogInput } from "./LogInput";
 import { QuickButtons } from "./QuickButtons";
 import { LogTimeline } from "./LogTimeline";
@@ -13,6 +13,7 @@ import {
   getUserTimezone,
   getLogs,
   getTagLogs,
+  getTimelineLogs,
   getStats,
   getMonthCounts,
   getTags,
@@ -39,12 +40,20 @@ export function Dashboard() {
   const [monthError, setMonthError] = useState<string | null>(null);
   const [activeTypes, setActiveTypes] = useState<LogType[]>([]);
   const [linksOnly, setLinksOnly] = useState(false);
+  const [viewMode, setViewMode] = useState<"day" | "archive" | "tag">("day");
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
   const [tagLogs, setTagLogs] = useState<Log[]>([]);
   const [tagCursor, setTagCursor] = useState<string | null>(null);
   const [tagHasMore, setTagHasMore] = useState(true);
   const [tagLoading, setTagLoading] = useState(false);
   const [tagError, setTagError] = useState<string | null>(null);
+  const [archiveFilter, setArchiveFilter] = useState<"all" | "links" | LogType>("all");
+  const [archiveLogs, setArchiveLogs] = useState<Log[]>([]);
+  const [archiveCursor, setArchiveCursor] = useState<string | null>(null);
+  const [archiveHasMore, setArchiveHasMore] = useState(true);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+  const archiveSentinelRef = useRef<HTMLDivElement | null>(null);
 
   // Load data
   const loadData = useCallback(async () => {
@@ -67,10 +76,11 @@ export function Dashboard() {
   }, [date]);
 
   useEffect(() => {
+    if (viewMode !== "day") return;
     loadData();
-  }, [loadData]);
+  }, [viewMode, loadData]);
 
-  const baseLogs = selectedTagId ? tagLogs : logs;
+  const baseLogs = viewMode === "tag" ? tagLogs : logs;
 
   const typeCounts = useMemo(() => {
     const counts = logTypes.reduce((acc, type) => {
@@ -110,7 +120,11 @@ export function Dashboard() {
   };
 
   const handleSelectTag = (tagId: string) => {
-    setSelectedTagId((prev) => (prev === tagId ? null : tagId));
+    setSelectedTagId((prev) => {
+      const next = prev === tagId ? null : tagId;
+      setViewMode(next ? "tag" : "day");
+      return next;
+    });
   };
 
   const emptyMessage =
@@ -137,7 +151,37 @@ export function Dashboard() {
     [selectedTagId]
   );
 
+  const loadArchiveLogs = useCallback(
+    async (cursor?: string, append?: boolean) => {
+      setArchiveLoading(true);
+      setArchiveError(null);
+      try {
+        const types =
+          archiveFilter === "links"
+            ? (["bookmark", "reading"] as LogType[])
+            : archiveFilter === "all"
+              ? undefined
+              : ([archiveFilter] as LogType[]);
+
+        const res = await getTimelineLogs({
+          types,
+          limit: 50,
+          cursor,
+        });
+        setArchiveLogs((prev) => (append ? [...prev, ...res.items] : res.items));
+        setArchiveCursor(res.nextCursor ?? null);
+        setArchiveHasMore(res.hasMore);
+      } catch (err) {
+        setArchiveError(err instanceof Error ? err.message : "Failed to load archive");
+      } finally {
+        setArchiveLoading(false);
+      }
+    },
+    [archiveFilter]
+  );
+
   useEffect(() => {
+    if (viewMode !== "tag") return;
     if (!selectedTagId) {
       setTagLogs([]);
       setTagCursor(null);
@@ -149,7 +193,45 @@ export function Dashboard() {
     setTagCursor(null);
     setTagHasMore(true);
     loadTagLogs();
-  }, [selectedTagId, loadTagLogs]);
+  }, [viewMode, selectedTagId, loadTagLogs]);
+
+  useEffect(() => {
+    if (viewMode !== "archive") return;
+    setArchiveLogs([]);
+    setArchiveCursor(null);
+    setArchiveHasMore(true);
+    loadArchiveLogs();
+  }, [viewMode, archiveFilter, loadArchiveLogs]);
+
+  useEffect(() => {
+    if (viewMode !== "archive") return;
+    const sentinel = archiveSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (
+          entry.isIntersecting &&
+          archiveHasMore &&
+          !archiveLoading &&
+          !archiveError
+        ) {
+          loadArchiveLogs(archiveCursor ?? undefined, true);
+        }
+      },
+      { rootMargin: "300px" }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [
+    viewMode,
+    archiveHasMore,
+    archiveLoading,
+    archiveCursor,
+    archiveError,
+    loadArchiveLogs,
+  ]);
 
   useEffect(() => {
     const dateMonth = date.slice(0, 7);
@@ -238,13 +320,38 @@ export function Dashboard() {
 
   const isToday = date === getTodayDate();
   const selectedTag = selectedTagId ? tags.find((tag) => tag.id === selectedTagId) : null;
-  const showTagView = Boolean(selectedTagId);
+  const showTagView = viewMode === "tag" && Boolean(selectedTagId);
+  const showArchiveView = viewMode === "archive";
   const timeZone = getUserTimezone();
 
   return (
     <div className="dashboard">
       <header className="dashboard-header">
-        <h1 className="dashboard-title">LifeLog</h1>
+        <div className="dashboard-title-group">
+          <h1 className="dashboard-title">LifeLog</h1>
+          <div className="view-toggle">
+            <button
+              type="button"
+              className={`view-toggle-btn ${viewMode === "day" ? "active" : ""}`}
+              onClick={() => {
+                setViewMode("day");
+                setSelectedTagId(null);
+              }}
+            >
+              Day
+            </button>
+            <button
+              type="button"
+              className={`view-toggle-btn ${viewMode === "archive" ? "active" : ""}`}
+              onClick={() => {
+                setViewMode("archive");
+                setSelectedTagId(null);
+              }}
+            >
+              Archive
+            </button>
+          </div>
+        </div>
         <div className="dashboard-actions">
           <button
             type="button"
@@ -283,20 +390,84 @@ export function Dashboard() {
             </div>
           )}
 
-          <LogInput onSubmit={handleCreateLog} />
-          <QuickButtons onQuickLog={handleCreateLog} />
-          <LogFilters
-            activeTypes={activeTypes}
-            onToggleType={handleToggleType}
-            onClearTypes={handleClearFilters}
-            linksOnly={linksOnly}
-            onToggleLinksOnly={handleToggleLinksOnly}
-            typeCounts={typeCounts}
-            totalCount={baseLogs.length}
-            filteredCount={filteredLogs.length}
-          />
+          {showArchiveView ? (
+            <section className="archive-controls">
+              <div className="archive-title">Archive timeline</div>
+              <div className="archive-tabs">
+                {[
+                  { key: "all", label: "All", emoji: "✨" },
+                  { key: "links", label: "Links", emoji: "🔗" },
+                  { key: "activity", label: "activity", emoji: "🎯" },
+                  { key: "wake_up", label: "wake_up", emoji: "🌅" },
+                  { key: "meal", label: "meal", emoji: "🍽️" },
+                  { key: "location", label: "location", emoji: "📍" },
+                  { key: "thought", label: "thought", emoji: "💭" },
+                  { key: "reading", label: "reading", emoji: "📖" },
+                  { key: "media", label: "media", emoji: "🎬" },
+                  { key: "bookmark", label: "bookmark", emoji: "🔗" },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className={`archive-tab ${archiveFilter === item.key ? "active" : ""}`}
+                    onClick={() =>
+                      setArchiveFilter(item.key as "all" | "links" | LogType)
+                    }
+                  >
+                    <span className="archive-tab-emoji">{item.emoji}</span>
+                    <span className="archive-tab-label">{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <>
+              <LogInput onSubmit={handleCreateLog} />
+              <QuickButtons onQuickLog={handleCreateLog} />
+              <LogFilters
+                activeTypes={activeTypes}
+                onToggleType={handleToggleType}
+                onClearTypes={handleClearFilters}
+                linksOnly={linksOnly}
+                onToggleLinksOnly={handleToggleLinksOnly}
+                typeCounts={typeCounts}
+                totalCount={baseLogs.length}
+                filteredCount={filteredLogs.length}
+              />
+            </>
+          )}
 
-          {showTagView ? (
+          {showArchiveView ? (
+            <section className="archive-view">
+              <div className="timeline-section">
+                <h2 className="timeline-title">Archive</h2>
+                {archiveError && (
+                  <div className="error-banner">
+                    {archiveError}
+                    <button type="button" onClick={() => setArchiveError(null)}>Dismiss</button>
+                  </div>
+                )}
+                {archiveLoading && archiveLogs.length === 0 ? (
+                  <div className="loading">Loading...</div>
+                ) : (
+                  <LogTimeline
+                    logs={archiveLogs}
+                    onUpdate={() => loadArchiveLogs()}
+                    emptyMessage="No logs in archive yet."
+                    groupByDate
+                    timeZone={timeZone}
+                  />
+                )}
+                <div ref={archiveSentinelRef} className="archive-sentinel" />
+                {archiveLoading && archiveLogs.length > 0 && (
+                  <div className="loading">Loading more...</div>
+                )}
+                {!archiveHasMore && archiveLogs.length > 0 && (
+                  <div className="archive-end">You've reached the beginning.</div>
+                )}
+              </div>
+            </section>
+          ) : showTagView ? (
             <section className="tag-view">
               <div className="tag-view-header">
                 <div>
@@ -376,7 +547,7 @@ export function Dashboard() {
         <RightSidebar stats={stats} />
       </div>
 
-      {!showTagView && (
+      {!showTagView && !showArchiveView && (
         <DateNavigation
           date={date}
           onPrev={goToPrevDay}

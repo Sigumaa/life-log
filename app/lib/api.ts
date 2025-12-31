@@ -139,6 +139,24 @@ export async function getTagLogs(
   return apiRequest<LogsResponse>(`/tags/${tagId}/logs${query ? `?${query}` : ""}`);
 }
 
+export async function getTimelineLogs(options?: {
+  type?: LogType;
+  types?: LogType[];
+  limit?: number;
+  cursor?: string;
+}): Promise<LogsResponse> {
+  const params = new URLSearchParams();
+  if (options?.type) params.set("type", options.type);
+  if (options?.types && options.types.length > 0) {
+    params.set("types", options.types.join(","));
+  }
+  if (options?.limit) params.set("limit", String(options.limit));
+  if (options?.cursor) params.set("cursor", options.cursor);
+
+  const query = params.toString();
+  return apiRequest<LogsResponse>(`/timeline${query ? `?${query}` : ""}`);
+}
+
 export async function getLog(id: string): Promise<Log> {
   return apiRequest<Log>(`/logs/${id}`);
 }
