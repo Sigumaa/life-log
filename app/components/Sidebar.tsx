@@ -1,12 +1,30 @@
 import { useState } from "react";
 import { type Tag, type Stats, createTag, deleteTag } from "../lib/api";
+import { MonthCalendar } from "./MonthCalendar";
 
 interface LeftSidebarProps {
   tags: Tag[];
   onTagsChange: () => void;
+  selectedDate: string;
+  onSelectDate: (date: string) => void;
+  calendarMonth: string;
+  onChangeMonth: (month: string) => void;
+  monthCounts: Record<string, number>;
+  monthLoading?: boolean;
+  monthError?: string | null;
 }
 
-export function LeftSidebar({ tags, onTagsChange }: LeftSidebarProps) {
+export function LeftSidebar({
+  tags,
+  onTagsChange,
+  selectedDate,
+  onSelectDate,
+  calendarMonth,
+  onChangeMonth,
+  monthCounts,
+  monthLoading,
+  monthError,
+}: LeftSidebarProps) {
   const [newTagName, setNewTagName] = useState("");
   const [creating, setCreating] = useState(false);
 
@@ -36,6 +54,19 @@ export function LeftSidebar({ tags, onTagsChange }: LeftSidebarProps) {
 
   return (
     <aside className="sidebar sidebar-left">
+      <section className="sidebar-section">
+        <h3 className="sidebar-title">Calendar</h3>
+        <MonthCalendar
+          month={calendarMonth}
+          selectedDate={selectedDate}
+          counts={monthCounts}
+          onSelectDate={onSelectDate}
+          onChangeMonth={onChangeMonth}
+          loading={monthLoading}
+          error={monthError}
+        />
+      </section>
+
       <section className="sidebar-section">
         <h3 className="sidebar-title">Tags</h3>
         <div className="tag-list">

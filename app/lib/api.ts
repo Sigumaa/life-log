@@ -36,6 +36,16 @@ export interface Stats {
   weekCount: number;
   recentUrls: string[];
   topTags: { id: string; name: string; count: number }[];
+  monthDays?: { date: string; count: number }[];
+}
+
+export interface LinkPreview {
+  url: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  siteName?: string;
+  hostname?: string;
 }
 
 export interface LogsResponse {
@@ -181,4 +191,16 @@ export async function searchLogs(
 export async function getStats(): Promise<Stats> {
   const tz = getUserTimezone();
   return apiRequest<Stats>(`/stats?tz=${tz}`);
+}
+
+export async function getMonthCounts(month: string): Promise<{ date: string; count: number }[]> {
+  const tz = getUserTimezone();
+  const params = new URLSearchParams({ tz, month });
+  const res = await apiRequest<Stats>(`/stats?${params}`);
+  return res.monthDays ?? [];
+}
+
+export async function getLinkPreview(url: string): Promise<LinkPreview> {
+  const params = new URLSearchParams({ url });
+  return apiRequest<LinkPreview>(`/preview?${params}`);
 }

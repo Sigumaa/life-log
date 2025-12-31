@@ -8,6 +8,7 @@ import { logsRoutes } from "../../server/routes/logs";
 import { tagsRoutes } from "../../server/routes/tags";
 import { createDb } from "../../server/db";
 import { sql } from "drizzle-orm";
+import { fromZonedTime } from "date-fns-tz";
 
 const migrationPath = join(__dirname, "../../server/db/migrations/0000_solid_the_watchers.sql");
 const migrationSql = readFileSync(migrationPath, "utf-8");
@@ -84,6 +85,48 @@ describe("Stats API", () => {
       expect(typeof body.weekCount).toBe("number");
       expect(Array.isArray(body.recentUrls)).toBe(true);
       expect(Array.isArray(body.topTags)).toBe(true);
+    });
+
+    it("returns monthDays when month is provided", async () => {
+      const tz = "Asia/Tokyo";
+      const ts1 = fromZonedTime("2025-12-03T10:00:00", tz).getTime();
+      const ts2 = fromZonedTime("2025-12-03T20:00:00", tz).getTime();
+      const ts3 = fromZonedTime("2025-12-15T09:00:00", tz).getTime();
+      const tsNext = fromZonedTime("2026-01-01T00:00:00", tz).getTime();
+
+      await app.request("/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "thought", content: "A", timestamp: ts1 }),
+      });
+      await app.request("/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "thought", content: "B", timestamp: ts2 }),
+      });
+      await app.request("/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "thought", content: "C", timestamp: ts3 }),
+      });
+      await app.request("/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "thought", content: "D", timestamp: tsNext }),
+      });
+
+      const res = await app.request(`/stats?tz=${tz}&month=2025-12`);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(Array.isArray(body.monthDays)).toBe(true);
+
+      const day3 = body.monthDays.find((d: { date: string }) => d.date === "2025-12-03");
+      const day15 = body.monthDays.find((d: { date: string }) => d.date === "2025-12-15");
+      const dayNext = body.monthDays.find((d: { date: string }) => d.date === "2026-01-01");
+
+      expect(day3?.count).toBe(2);
+      expect(day15?.count).toBe(1);
+      expect(dayNext).toBeUndefined();
     });
 
     it("counts logs correctly for today", async () => {

@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { LogInput } from "./LogInput";
 import { QuickButtons } from "./QuickButtons";
 import { LogTimeline } from "./LogTimeline";
+import { LogFilters } from "./LogFilters";
 import { LeftSidebar, RightSidebar } from "./Sidebar";
 import { DateNavigation } from "./DateNavigation";
 import { SearchModal } from "./SearchModal";
@@ -11,22 +12,31 @@ import {
   parseDateLocal,
   getLogs,
   getStats,
+  getMonthCounts,
   getTags,
   createLog,
   type Log,
   type Tag,
   type Stats,
   type LogType,
+  logTypes,
 } from "../lib/api";
+import { hasUrl } from "../lib/links";
 
 export function Dashboard() {
   const [date, setDate] = useState(getTodayDate());
+  const [calendarMonth, setCalendarMonth] = useState(date.slice(0, 7));
   const [logs, setLogs] = useState<Log[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [monthCounts, setMonthCounts] = useState<Record<string, number>>({});
+  const [monthLoading, setMonthLoading] = useState(false);
+  const [monthError, setMonthError] = useState<string | null>(null);
+  const [activeTypes, setActiveTypes] = useState<LogType[]>([]);
+  const [linksOnly, setLinksOnly] = useState(false);
 
   // Load data
   const loadData = useCallback(async () => {
@@ -51,6 +61,82 @@ export function Dashboard() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const typeCounts = useMemo(() => {
+    const counts = logTypes.reduce((acc, type) => {
+      acc[type] = 0;
+      return acc;
+    }, {} as Record<LogType, number>);
+    for (const log of logs) {
+      counts[log.type] = (counts[log.type] ?? 0) + 1;
+    }
+    return counts;
+  }, [logs]);
+
+  const filteredLogs = useMemo(() => {
+    return logs.filter((log) => {
+      const typeMatch = activeTypes.length === 0 || activeTypes.includes(log.type);
+      const linkMatch =
+        !linksOnly ||
+        hasUrl(log.content) ||
+        (typeof log.metadata?.url === "string" && log.metadata.url.length > 0);
+      return typeMatch && linkMatch;
+    });
+  }, [logs, activeTypes, linksOnly]);
+
+  const handleToggleType = (type: LogType) => {
+    setActiveTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
+  };
+
+  const handleClearFilters = () => {
+    setActiveTypes([]);
+    setLinksOnly(false);
+  };
+
+  const handleToggleLinksOnly = () => {
+    setLinksOnly((prev) => !prev);
+  };
+
+  const emptyMessage =
+    logs.length > 0 && filteredLogs.length === 0
+      ? "No logs match current filters."
+      : undefined;
+
+  useEffect(() => {
+    const dateMonth = date.slice(0, 7);
+    setCalendarMonth((prev) => (prev === dateMonth ? prev : dateMonth));
+  }, [date]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadMonthCounts = async () => {
+      setMonthLoading(true);
+      setMonthError(null);
+      try {
+        const monthDays = await getMonthCounts(calendarMonth);
+        if (cancelled) return;
+        const counts: Record<string, number> = {};
+        for (const day of monthDays) {
+          counts[day.date] = day.count;
+        }
+        setMonthCounts(counts);
+      } catch (err) {
+        if (!cancelled) {
+          setMonthError(err instanceof Error ? err.message : "Failed to load month stats");
+        }
+      } finally {
+        if (!cancelled) {
+          setMonthLoading(false);
+        }
+      }
+    };
+    loadMonthCounts();
+    return () => {
+      cancelled = true;
+    };
+  }, [calendarMonth]);
 
   // Keyboard shortcut for search (Cmd/Ctrl + K)
   useEffect(() => {
@@ -125,7 +211,17 @@ export function Dashboard() {
       <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
 
       <div className="dashboard-content">
-        <LeftSidebar tags={tags} onTagsChange={loadData} />
+        <LeftSidebar
+          tags={tags}
+          onTagsChange={loadData}
+          selectedDate={date}
+          onSelectDate={setDate}
+          calendarMonth={calendarMonth}
+          onChangeMonth={setCalendarMonth}
+          monthCounts={monthCounts}
+          monthLoading={monthLoading}
+          monthError={monthError}
+        />
 
         <main className="main-area">
           {error && (
@@ -137,6 +233,16 @@ export function Dashboard() {
 
           <LogInput onSubmit={handleCreateLog} />
           <QuickButtons onQuickLog={handleCreateLog} />
+          <LogFilters
+            activeTypes={activeTypes}
+            onToggleType={handleToggleType}
+            onClearTypes={handleClearFilters}
+            linksOnly={linksOnly}
+            onToggleLinksOnly={handleToggleLinksOnly}
+            typeCounts={typeCounts}
+            totalCount={logs.length}
+            filteredCount={filteredLogs.length}
+          />
 
           <div className="timeline-section">
             <h2 className="timeline-title">
@@ -145,7 +251,11 @@ export function Dashboard() {
             {loading ? (
               <div className="loading">Loading...</div>
             ) : (
-              <LogTimeline logs={logs} onUpdate={loadData} />
+              <LogTimeline
+                logs={filteredLogs}
+                onUpdate={loadData}
+                emptyMessage={emptyMessage}
+              />
             )}
           </div>
         </main>

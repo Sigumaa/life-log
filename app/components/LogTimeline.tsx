@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { type Log, deleteLog, updateLog } from "../lib/api";
+import { extractUrls, linkifyText } from "../lib/links";
+import { LinkPreview } from "./LinkPreview";
 
 interface LogTimelineProps {
   logs: Log[];
   onUpdate: () => void;
+  emptyMessage?: string;
 }
 
 const typeEmojis: Record<string, string> = {
@@ -64,6 +67,15 @@ function LogItem({ log, onDelete, onUpdate }: LogItemProps) {
     setEditing(false);
   };
 
+  const contentParts = linkifyText(log.content);
+  const urlSet = new Set<string>();
+  if (typeof log.metadata?.url === "string") {
+    urlSet.add(log.metadata.url);
+  }
+  for (const url of extractUrls(log.content)) urlSet.add(url);
+  const urls = Array.from(urlSet.values());
+  const previewUrl = urls[0];
+
   return (
     <div className={`log-item ${deleting ? "deleting" : ""}`}>
       <div className="log-item-time">{formatTime(log.timestamp)}</div>
@@ -103,17 +115,45 @@ function LogItem({ log, onDelete, onUpdate }: LogItemProps) {
           </div>
         ) : (
           <div className="log-item-text">
-            {log.content}
-            {typeof log.metadata?.url === "string" && (
-              <a
-                href={log.metadata.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="log-item-url"
-              >
-                {new URL(log.metadata.url).hostname}
-              </a>
+            {contentParts.map((part, index) =>
+              part.type === "text" ? (
+                <span key={`text-${index}`}>{part.value}</span>
+              ) : (
+                <a
+                  key={`link-${index}`}
+                  href={part.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="log-item-link"
+                >
+                  {part.value}
+                </a>
+              )
             )}
+            {urls.length > 1 && (
+              <span className="log-item-links">
+                {urls.slice(1).map((url) => {
+                  let label = url;
+                  try {
+                    label = new URL(url).hostname;
+                  } catch {
+                    // fallback to raw url
+                  }
+                  return (
+                    <a
+                      key={url}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="log-item-link"
+                    >
+                      {label}
+                    </a>
+                  );
+                })}
+              </span>
+            )}
+            {previewUrl && <LinkPreview url={previewUrl} />}
           </div>
         )}
       </div>
@@ -142,11 +182,11 @@ function LogItem({ log, onDelete, onUpdate }: LogItemProps) {
   );
 }
 
-export function LogTimeline({ logs, onUpdate }: LogTimelineProps) {
+export function LogTimeline({ logs, onUpdate, emptyMessage }: LogTimelineProps) {
   if (logs.length === 0) {
     return (
       <div className="log-timeline-empty">
-        No logs yet. Start logging!
+        {emptyMessage ?? "No logs yet. Start logging!"}
       </div>
     );
   }
