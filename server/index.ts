@@ -26,17 +26,21 @@ app.use("*", async (c, next) => {
 
   // Origin validation
   const origin = c.req.header("Origin");
+  const allowedHost = c.env.ALLOWED_ORIGIN || c.req.header("Host");
   let allowed = false;
   try {
-    if (!origin) throw new Error("No origin");
-    const url = new URL(origin);
-    // Get allowed host from environment variable, or use request host as fallback
-    const allowedHost = c.env.ALLOWED_ORIGIN || c.req.header("Host");
-    allowed =
-      (url.protocol === "https:" && url.host === allowedHost) ||
-      (url.protocol === "http:" && url.hostname === "localhost");
+    if (origin) {
+      const url = new URL(origin);
+      allowed =
+        (url.protocol === "https:" && url.host === allowedHost) ||
+        (url.protocol === "http:" && url.hostname === "localhost");
+    } else if (allowedHost) {
+      // Some same-origin requests may omit Origin; allow if Host matches.
+      const host = c.req.header("Host");
+      allowed = host === allowedHost;
+    }
   } catch {
-    // origin is null or invalid format
+    // origin is invalid format
   }
 
   if (!allowed) {
@@ -53,6 +57,12 @@ app.use("*", async (c, next) => {
   await db.run(sql`PRAGMA foreign_keys = ON`);
   c.set("db" as never, db);
   return next();
+});
+
+// Standardized API error response
+app.onError((err, c) => {
+  console.error("API error:", err);
+  return c.json({ error: "Internal Server Error" }, 500);
 });
 
 // Health check

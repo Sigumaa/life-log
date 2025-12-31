@@ -5,5 +5,5 @@ pages_build_output_dir = "./build/client"
 [[d1_databases]]
 binding = "DB"
 database_name = "lifelog-db"
-database_id = "52f9829a-4aa4-4981-8758-1caeefa922f8"
+database_id = "56a51250-bb6c-4916-b9d7-6f19d554b06e"
 migrations_dir = "server/db/migrations"
