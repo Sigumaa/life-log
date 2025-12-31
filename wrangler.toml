@@ -1,0 +1,9 @@
+name = "lifelog"
+compatibility_date = "2024-12-30"
+pages_build_output_dir = "./build/client"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "lifelog-db"
+database_id = "local"  # ローカル開発用。本番デプロイ時に実際のIDに変更
+migrations_dir = "server/db/migrations"
