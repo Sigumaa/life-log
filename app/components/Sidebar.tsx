@@ -5,6 +5,8 @@ import { MonthCalendar } from "./MonthCalendar";
 interface LeftSidebarProps {
   tags: Tag[];
   onTagsChange: () => void;
+  selectedTagId: string | null;
+  onSelectTag: (tagId: string) => void;
   selectedDate: string;
   onSelectDate: (date: string) => void;
   calendarMonth: string;
@@ -17,6 +19,8 @@ interface LeftSidebarProps {
 export function LeftSidebar({
   tags,
   onTagsChange,
+  selectedTagId,
+  onSelectTag,
   selectedDate,
   onSelectDate,
   calendarMonth,
@@ -74,7 +78,19 @@ export function LeftSidebar({
             <div className="tag-list-empty">No tags yet</div>
           ) : (
             tags.map((tag) => (
-              <div key={tag.id} className="tag-item">
+              <div
+                key={tag.id}
+                className={`tag-item ${selectedTagId === tag.id ? "tag-item-selected" : ""}`}
+                onClick={() => onSelectTag(tag.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelectTag(tag.id);
+                  }
+                }}
+              >
                 <span
                   className="tag-color"
                   style={{ backgroundColor: tag.color || "#6b7280" }}
@@ -83,7 +99,10 @@ export function LeftSidebar({
                 <button
                   type="button"
                   className="tag-delete"
-                  onClick={() => handleDeleteTag(tag.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteTag(tag.id);
+                  }}
                   title="Delete tag"
                 >
                   x

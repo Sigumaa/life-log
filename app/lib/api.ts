@@ -51,7 +51,7 @@ export interface LinkPreview {
 export interface LogsResponse {
   items: Log[];
   hasMore: boolean;
-  cursor?: string;
+  nextCursor?: string;
 }
 
 export interface SearchResponse {
@@ -125,6 +125,18 @@ export async function getLogs(
   if (options?.cursor) params.set("cursor", options.cursor);
 
   return apiRequest<LogsResponse>(`/logs?${params}`);
+}
+
+export async function getTagLogs(
+  tagId: string,
+  options?: { limit?: number; cursor?: string }
+): Promise<LogsResponse> {
+  const params = new URLSearchParams();
+  if (options?.limit) params.set("limit", String(options.limit));
+  if (options?.cursor) params.set("cursor", options.cursor);
+
+  const query = params.toString();
+  return apiRequest<LogsResponse>(`/tags/${tagId}/logs${query ? `?${query}` : ""}`);
 }
 
 export async function getLog(id: string): Promise<Log> {

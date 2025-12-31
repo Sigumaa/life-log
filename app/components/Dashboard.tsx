@@ -10,7 +10,9 @@ import {
   getTodayDate,
   formatDateLocal,
   parseDateLocal,
+  getUserTimezone,
   getLogs,
+  getTagLogs,
   getStats,
   getMonthCounts,
   getTags,
@@ -37,6 +39,12 @@ export function Dashboard() {
   const [monthError, setMonthError] = useState<string | null>(null);
   const [activeTypes, setActiveTypes] = useState<LogType[]>([]);
   const [linksOnly, setLinksOnly] = useState(false);
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
+  const [tagLogs, setTagLogs] = useState<Log[]>([]);
+  const [tagCursor, setTagCursor] = useState<string | null>(null);
+  const [tagHasMore, setTagHasMore] = useState(true);
+  const [tagLoading, setTagLoading] = useState(false);
+  const [tagError, setTagError] = useState<string | null>(null);
 
   // Load data
   const loadData = useCallback(async () => {
@@ -62,19 +70,21 @@ export function Dashboard() {
     loadData();
   }, [loadData]);
 
+  const baseLogs = selectedTagId ? tagLogs : logs;
+
   const typeCounts = useMemo(() => {
     const counts = logTypes.reduce((acc, type) => {
       acc[type] = 0;
       return acc;
     }, {} as Record<LogType, number>);
-    for (const log of logs) {
+    for (const log of baseLogs) {
       counts[log.type] = (counts[log.type] ?? 0) + 1;
     }
     return counts;
-  }, [logs]);
+  }, [baseLogs]);
 
   const filteredLogs = useMemo(() => {
-    return logs.filter((log) => {
+    return baseLogs.filter((log) => {
       const typeMatch = activeTypes.length === 0 || activeTypes.includes(log.type);
       const linkMatch =
         !linksOnly ||
@@ -82,7 +92,7 @@ export function Dashboard() {
         (typeof log.metadata?.url === "string" && log.metadata.url.length > 0);
       return typeMatch && linkMatch;
     });
-  }, [logs, activeTypes, linksOnly]);
+  }, [baseLogs, activeTypes, linksOnly]);
 
   const handleToggleType = (type: LogType) => {
     setActiveTypes((prev) =>
@@ -99,10 +109,47 @@ export function Dashboard() {
     setLinksOnly((prev) => !prev);
   };
 
+  const handleSelectTag = (tagId: string) => {
+    setSelectedTagId((prev) => (prev === tagId ? null : tagId));
+  };
+
   const emptyMessage =
-    logs.length > 0 && filteredLogs.length === 0
+    baseLogs.length > 0 && filteredLogs.length === 0
       ? "No logs match current filters."
       : undefined;
+
+  const loadTagLogs = useCallback(
+    async (cursor?: string, append?: boolean) => {
+      if (!selectedTagId) return;
+      setTagLoading(true);
+      setTagError(null);
+      try {
+        const res = await getTagLogs(selectedTagId, { limit: 50, cursor });
+        setTagLogs((prev) => (append ? [...prev, ...res.items] : res.items));
+        setTagCursor(res.nextCursor ?? null);
+        setTagHasMore(res.hasMore);
+      } catch (err) {
+        setTagError(err instanceof Error ? err.message : "Failed to load tag logs");
+      } finally {
+        setTagLoading(false);
+      }
+    },
+    [selectedTagId]
+  );
+
+  useEffect(() => {
+    if (!selectedTagId) {
+      setTagLogs([]);
+      setTagCursor(null);
+      setTagHasMore(true);
+      setTagError(null);
+      return;
+    }
+    setTagLogs([]);
+    setTagCursor(null);
+    setTagHasMore(true);
+    loadTagLogs();
+  }, [selectedTagId, loadTagLogs]);
 
   useEffect(() => {
     const dateMonth = date.slice(0, 7);
@@ -190,6 +237,9 @@ export function Dashboard() {
   };
 
   const isToday = date === getTodayDate();
+  const selectedTag = selectedTagId ? tags.find((tag) => tag.id === selectedTagId) : null;
+  const showTagView = Boolean(selectedTagId);
+  const timeZone = getUserTimezone();
 
   return (
     <div className="dashboard">
@@ -214,6 +264,8 @@ export function Dashboard() {
         <LeftSidebar
           tags={tags}
           onTagsChange={loadData}
+          selectedTagId={selectedTagId}
+          onSelectTag={handleSelectTag}
           selectedDate={date}
           onSelectDate={setDate}
           calendarMonth={calendarMonth}
@@ -240,36 +292,99 @@ export function Dashboard() {
             linksOnly={linksOnly}
             onToggleLinksOnly={handleToggleLinksOnly}
             typeCounts={typeCounts}
-            totalCount={logs.length}
+            totalCount={baseLogs.length}
             filteredCount={filteredLogs.length}
           />
 
-          <div className="timeline-section">
-            <h2 className="timeline-title">
-              {isToday ? "Today's Logs" : `Logs for ${date}`}
-            </h2>
-            {loading ? (
-              <div className="loading">Loading...</div>
-            ) : (
-              <LogTimeline
-                logs={filteredLogs}
-                onUpdate={loadData}
-                emptyMessage={emptyMessage}
-              />
-            )}
-          </div>
+          {showTagView ? (
+            <section className="tag-view">
+              <div className="tag-view-header">
+                <div>
+                  <div className="tag-view-title">
+                    {selectedTag ? `#${selectedTag.name}` : "Tag timeline"}
+                  </div>
+                  <div className="tag-view-subtitle">
+                    Scroll back through everything you logged for this tag.
+                  </div>
+                </div>
+                <div className="tag-view-actions">
+                  <button
+                    type="button"
+                    className="tag-view-back"
+                    onClick={() => setSelectedTagId(null)}
+                  >
+                    Back to day view
+                  </button>
+                </div>
+              </div>
+
+              {tagError && (
+                <div className="error-banner">
+                  {tagError}
+                  <button type="button" onClick={() => setTagError(null)}>Dismiss</button>
+                </div>
+              )}
+
+              <div className="timeline-section">
+                <h2 className="timeline-title">
+                  Tag timeline
+                </h2>
+                {tagLoading && tagLogs.length === 0 ? (
+                  <div className="loading">Loading...</div>
+                ) : (
+                  <LogTimeline
+                    logs={filteredLogs}
+                    onUpdate={() => loadTagLogs()}
+                    emptyMessage={emptyMessage ?? "No logs for this tag yet."}
+                    groupByDate
+                    timeZone={timeZone}
+                  />
+                )}
+              </div>
+
+              {tagHasMore && (
+                <div className="tag-load-more">
+                  <button
+                    type="button"
+                    className="tag-load-more-btn"
+                    onClick={() => loadTagLogs(tagCursor ?? undefined, true)}
+                    disabled={tagLoading}
+                  >
+                    {tagLoading ? "Loading..." : "Load more"}
+                  </button>
+                </div>
+              )}
+            </section>
+          ) : (
+            <div className="timeline-section">
+              <h2 className="timeline-title">
+                {isToday ? "Today's Logs" : `Logs for ${date}`}
+              </h2>
+              {loading ? (
+                <div className="loading">Loading...</div>
+              ) : (
+                <LogTimeline
+                  logs={filteredLogs}
+                  onUpdate={loadData}
+                  emptyMessage={emptyMessage}
+                />
+              )}
+            </div>
+          )}
         </main>
 
         <RightSidebar stats={stats} />
       </div>
 
-      <DateNavigation
-        date={date}
-        onPrev={goToPrevDay}
-        onNext={goToNextDay}
-        onToday={goToToday}
-        isToday={isToday}
-      />
+      {!showTagView && (
+        <DateNavigation
+          date={date}
+          onPrev={goToPrevDay}
+          onNext={goToNextDay}
+          onToday={goToToday}
+          isToday={isToday}
+        />
+      )}
     </div>
   );
 }

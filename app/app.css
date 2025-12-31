@@ -161,10 +161,17 @@ body {
   padding: 0.375rem 0.5rem;
   border-radius: 0.25rem;
   font-size: 0.875rem;
+  cursor: pointer;
+  border: 1px solid transparent;
 }
 
 .tag-item:hover {
   background: #f3f4f6;
+}
+
+.tag-item-selected {
+  background: #eef2ff;
+  border-color: #c7d2fe;
 }
 
 .tag-color {
@@ -478,6 +485,79 @@ body {
   background: #fafafa;
 }
 
+.tag-view {
+  margin-top: 1rem;
+}
+
+.tag-view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.tag-view-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.tag-view-subtitle {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.tag-view-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tag-view-back {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.tag-view-back:hover {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+.tag-load-more {
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0 0;
+}
+
+.tag-load-more-btn {
+  padding: 0.5rem 1.25rem;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.tag-load-more-btn:hover:not(:disabled) {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+.tag-load-more-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .error-banner {
   display: flex;
   justify-content: space-between;
@@ -764,6 +844,50 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.log-timeline-grouped {
+  gap: 1rem;
+}
+
+.log-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.log-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+}
+
+.log-group-date {
+  font-weight: 600;
+}
+
+.log-group-count {
+  background: #111827;
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.65rem;
+}
+
+.log-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.log-group-divider {
+  border: none;
+  border-top: 1px dashed #e5e7eb;
+  margin: 0.25rem 0 0;
 }
 
 .log-timeline-empty {

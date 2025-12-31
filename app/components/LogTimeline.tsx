@@ -7,6 +7,8 @@ interface LogTimelineProps {
   logs: Log[];
   onUpdate: () => void;
   emptyMessage?: string;
+  groupByDate?: boolean;
+  timeZone?: string;
 }
 
 const typeEmojis: Record<string, string> = {
@@ -182,7 +184,13 @@ function LogItem({ log, onDelete, onUpdate }: LogItemProps) {
   );
 }
 
-export function LogTimeline({ logs, onUpdate, emptyMessage }: LogTimelineProps) {
+export function LogTimeline({
+  logs,
+  onUpdate,
+  emptyMessage,
+  groupByDate,
+  timeZone,
+}: LogTimelineProps) {
   if (logs.length === 0) {
     return (
       <div className="log-timeline-empty">
@@ -200,6 +208,60 @@ export function LogTimeline({ logs, onUpdate, emptyMessage }: LogTimelineProps) 
     await updateLog(id, { content });
     onUpdate();
   };
+
+  if (groupByDate) {
+    const tz =
+      timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const keyFormatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const labelFormatter = new Intl.DateTimeFormat(undefined, {
+      timeZone: tz,
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      weekday: "short",
+    });
+
+    const groups: Array<{ key: string; label: string; items: Log[] }> = [];
+    for (const log of logs) {
+      const key = keyFormatter.format(new Date(log.timestamp));
+      const label = labelFormatter.format(new Date(log.timestamp));
+      const last = groups[groups.length - 1];
+      if (!last || last.key !== key) {
+        groups.push({ key, label, items: [log] });
+      } else {
+        last.items.push(log);
+      }
+    }
+
+    return (
+      <div className="log-timeline log-timeline-grouped">
+        {groups.map((group, index) => (
+          <div key={group.key} className="log-group">
+            <div className="log-group-header">
+              <span className="log-group-date">{group.label}</span>
+              <span className="log-group-count">{group.items.length}</span>
+            </div>
+            <div className="log-group-items">
+              {group.items.map((log) => (
+                <LogItem
+                  key={log.id}
+                  log={log}
+                  onDelete={() => handleDelete(log.id)}
+                  onUpdate={(content) => handleUpdate(log.id, content)}
+                />
+              ))}
+            </div>
+            {index < groups.length - 1 && <hr className="log-group-divider" />}
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="log-timeline">

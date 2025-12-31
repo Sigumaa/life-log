@@ -30,9 +30,11 @@ previewRoutes.get("/", async (c) => {
     return c.json({ error: "Blocked host" }, 400);
   }
 
+  const fetchUrl = rewritePreviewUrl(url);
+
   let response: Response;
   try {
-    response = await fetch(url.toString(), {
+    response = await fetch(fetchUrl.toString(), {
       redirect: "follow",
       headers: {
         "User-Agent": "LifeLogPreview/1.0",
@@ -65,7 +67,7 @@ previewRoutes.get("/", async (c) => {
   const meta = extractMetadata(html);
   if (meta.image) {
     try {
-      meta.image = new URL(meta.image, url.toString()).toString();
+      meta.image = new URL(meta.image, fetchUrl.toString()).toString();
     } catch {
       // keep original
     }
@@ -160,4 +162,20 @@ function decodeEntities(text: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, "\"")
     .replace(/&#39;/g, "'");
+}
+
+function rewritePreviewUrl(url: URL): URL {
+  const host = url.hostname.toLowerCase();
+  if (
+    host === "x.com" ||
+    host === "www.x.com" ||
+    host === "twitter.com" ||
+    host === "www.twitter.com" ||
+    host === "mobile.twitter.com"
+  ) {
+    const rewritten = new URL(url.toString());
+    rewritten.hostname = "fxtwitter.com";
+    return rewritten;
+  }
+  return url;
 }
