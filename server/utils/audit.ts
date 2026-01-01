@@ -22,9 +22,15 @@ function buildAuditContent(c: Context<{ Bindings: Env }>, durationMs: number): s
   const referer = c.req.header("Referer");
   const userAgent = c.req.header("User-Agent");
   const rayId = c.req.header("CF-Ray");
+  const accessAuthed = Boolean(
+    c.req.header("Cf-Access-Authenticated-User-Email") ||
+      c.req.header("Cf-Access-Authenticated-User-Id") ||
+      c.req.header("Cf-Access-Jwt-Assertion"),
+  );
 
   const lines = [
     `[lifelog] ${method} ${path} ${status} ${durationMs}ms`,
+    `access: ${accessAuthed ? "ok" : "none"}`,
     ip ? `ip: ${ip}` : null,
     country ? `country: ${country}` : null,
     origin ? `origin: ${origin}` : null,
