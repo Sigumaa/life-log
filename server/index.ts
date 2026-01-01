@@ -8,8 +8,16 @@ import { searchRoutes } from "./routes/search";
 import { statsRoutes } from "./routes/stats";
 import { previewRoutes } from "./routes/preview";
 import { timelineRoutes } from "./routes/timeline";
+import { queueAuditLog } from "./utils/audit";
 
 const app = new Hono<{ Bindings: Env }>().basePath("/api");
+
+// Audit logging (Discord webhook)
+app.use("*", async (c, next) => {
+  const startedAt = Date.now();
+  await next();
+  queueAuditLog(c, Date.now() - startedAt);
+});
 
 // CSRF Protection Middleware for write operations
 app.use("*", async (c, next) => {
