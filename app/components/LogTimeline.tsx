@@ -42,6 +42,7 @@ function LogItem({ log, onDelete, onUpdate }: LogItemProps) {
   const [editContent, setEditContent] = useState(log.content);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
 
   const handleSave = async () => {
     if (editContent.trim() === log.content || saving) return;
@@ -55,6 +56,7 @@ function LogItem({ log, onDelete, onUpdate }: LogItemProps) {
   };
 
   const handleDelete = async () => {
+    setActionsOpen(false);
     if (!confirm("Delete this log?")) return;
     setDeleting(true);
     try {
@@ -79,7 +81,9 @@ function LogItem({ log, onDelete, onUpdate }: LogItemProps) {
   const previewUrl = urls[0];
 
   return (
-    <div className={`log-item ${deleting ? "deleting" : ""}`}>
+    <div
+      className={`log-item ${deleting ? "deleting" : ""} ${actionsOpen ? "actions-open" : ""}`}
+    >
       <div className="log-item-time">{formatTime(log.timestamp)}</div>
       <div className="log-item-emoji">{typeEmojis[log.type] || "📝"}</div>
       <div className="log-item-content">
@@ -163,8 +167,22 @@ function LogItem({ log, onDelete, onUpdate }: LogItemProps) {
         <div className="log-item-actions">
           <button
             type="button"
+            className="log-item-btn-more"
+            onClick={() => setActionsOpen((prev) => !prev)}
+            title="More actions"
+            aria-label="More actions"
+            aria-expanded={actionsOpen}
+          >
+            ...
+          </button>
+          <div className="log-item-actions-menu" role="menu">
+          <button
+            type="button"
             className="log-item-btn-edit"
-            onClick={() => setEditing(true)}
+            onClick={() => {
+              setActionsOpen(false);
+              setEditing(true);
+            }}
             title="Edit"
           >
             Edit
@@ -178,6 +196,7 @@ function LogItem({ log, onDelete, onUpdate }: LogItemProps) {
           >
             Delete
           </button>
+          </div>
         </div>
       )}
     </div>
