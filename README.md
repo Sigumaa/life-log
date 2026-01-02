@@ -4,7 +4,6 @@
 
 ![screenshot](./READMEimg/スクリーンショット%202026-01-02%2011.52.23.png)
 ![screenshot2](./READMEimg/スクリーンショット%202026-01-02%2011.52.48.png)
-![screenshot3](./READMEimg/スクリーンショット%202026-01-02%2011.53.13.png)
 
 使ってみる（自分で動かす場合）
 1) `npm install`
