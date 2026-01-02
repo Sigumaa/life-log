@@ -23,11 +23,11 @@ function buildAuditPayload(
   durationMs: number,
 ): {
   accessAuthed: boolean;
-  content?: string;
   embeds: Array<Record<string, unknown>>;
   allowed_mentions: { parse: string[]; users?: string[] };
 } {
   const url = new URL(c.req.url);
+  const host = url.host;
   const path = truncate(`${url.pathname}${url.search}`, MAX_PATH_LENGTH);
   const method = c.req.method;
   const status = c.res.status;
@@ -56,28 +56,69 @@ function buildAuditPayload(
         ? 0xf59e0b
         : 0x10b981;
 
+  const statusEmoji =
+    !accessAuthed ? "🚨" : status >= 500 ? "🧨" : status >= 400 ? "⚠️" : "✅";
+
+  const descriptionLines = [
+    `${statusEmoji} \`${method}\` \`${path}\``,
+    `Status: **${status}** • Duration: **${durationMs}ms**`,
+    shouldMention && mentionId ? `Access: **none** <@${mentionId}>` : `Access: **${accessAuthed ? "ok" : "none"}**`,
+  ];
+
+  const requestField = toField(
+    "Request",
+    [`Method: ${method}`, `Path: ${path}`, `Status: ${status}`, `Duration: ${durationMs}ms`].join(
+      "\n",
+    ),
+    false,
+  );
+
+  const clientField = toField(
+    "Client",
+    [
+      `Access: ${accessAuthed ? "ok" : "none"}`,
+      ip ? `IP: ${ip}` : null,
+      country ? `Country: ${country}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    true,
+  );
+
+  const headersField = toField(
+    "Headers",
+    [origin ? `Origin: ${origin}` : null, referer ? `Referer: ${referer}` : null]
+      .filter(Boolean)
+      .join("\n"),
+    false,
+  );
+
+  const agentField = toField("User-Agent", userAgent, false);
+
+  const metaField = toField(
+    "Meta",
+    [rayId ? `Ray: ${rayId}` : null, host ? `Host: ${host}` : null].filter(Boolean).join("\n"),
+    true,
+  );
+
   const fields = [
-    toField("Method", method),
-    toField("Path", path, false),
-    toField("Status", String(status)),
-    toField("Duration", `${durationMs}ms`),
-    toField("Access", accessAuthed ? "ok" : "none"),
-    toField("IP", ip),
-    toField("Country", country),
-    toField("Origin", origin, false),
-    toField("Referer", referer, false),
-    toField("User-Agent", userAgent, false),
-    toField("Ray", rayId),
+    requestField,
+    clientField,
+    headersField,
+    agentField,
+    metaField,
   ].filter(Boolean);
 
   return {
     accessAuthed,
-    content: shouldMention && mentionId ? `<@${mentionId}>` : undefined,
     embeds: [
       {
-        title: "LifeLog API",
+        title: "LifeLog API Audit",
+        description: descriptionLines.join("\n"),
+        url: url.toString(),
         color,
         fields,
+        footer: rayId ? { text: `CF-Ray ${rayId}` } : undefined,
         timestamp: new Date().toISOString(),
       },
     ],
