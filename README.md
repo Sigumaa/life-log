@@ -26,6 +26,7 @@ Cloudflare Access（任意）
 環境変数（任意）
 - `ALLOWED_ORIGIN` : 書き込み時の Origin チェック用
 - `AUDIT_WEBHOOK_URL` : 監査ログを Discord に送る場合
+- `AUDIT_MENTION_USER_ID` : Access がないリクエスト時にメンションする Discord ユーザーID
 
 Optional: AIにデプロイを任せるときのプロンプト
 「このリポジトリを Cloudflare Pages + D1 にデプロイしたい。wrangler.toml の d1_databases を自分のDBに合わせて更新して、D1 の migrations を適用し、build と deploy を実行して。必要な環境変数は ALLOWED_ORIGIN と AUDIT_WEBHOOK_URL。手順を短く箇条書きで教えて。」

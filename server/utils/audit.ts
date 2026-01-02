@@ -1,15 +1,32 @@
 import type { Context } from "hono";
 import type { Env } from "../../app/env";
 
-const MAX_CONTENT_LENGTH = 1800;
 const MAX_PATH_LENGTH = 500;
+const MAX_FIELD_LENGTH = 900;
 
 function truncate(value: string, max: number): string {
   if (value.length <= max) return value;
   return `${value.slice(0, max - 3)}...`;
 }
 
-function buildAuditContent(c: Context<{ Bindings: Env }>, durationMs: number): string {
+function toField(name: string, value?: string, inline = true) {
+  if (!value) return null;
+  return {
+    name,
+    value: truncate(value, MAX_FIELD_LENGTH),
+    inline,
+  };
+}
+
+function buildAuditPayload(
+  c: Context<{ Bindings: Env }>,
+  durationMs: number,
+): {
+  accessAuthed: boolean;
+  content?: string;
+  embeds: Array<Record<string, unknown>>;
+  allowed_mentions: { parse: string[]; users?: string[] };
+} {
   const url = new URL(c.req.url);
   const path = truncate(`${url.pathname}${url.search}`, MAX_PATH_LENGTH);
   const method = c.req.method;
@@ -28,18 +45,46 @@ function buildAuditContent(c: Context<{ Bindings: Env }>, durationMs: number): s
       c.req.header("Cf-Access-Jwt-Assertion"),
   );
 
-  const lines = [
-    `[lifelog] ${method} ${path} ${status} ${durationMs}ms`,
-    `access: ${accessAuthed ? "ok" : "none"}`,
-    ip ? `ip: ${ip}` : null,
-    country ? `country: ${country}` : null,
-    origin ? `origin: ${origin}` : null,
-    referer ? `referer: ${referer}` : null,
-    userAgent ? `ua: ${userAgent}` : null,
-    rayId ? `ray: ${rayId}` : null,
+  const mentionId = c.env.AUDIT_MENTION_USER_ID?.match(/\d+/)?.[0];
+  const shouldMention = !accessAuthed && Boolean(mentionId);
+
+  const color = !accessAuthed
+    ? 0xef4444
+    : status >= 500
+      ? 0xdc2626
+      : status >= 400
+        ? 0xf59e0b
+        : 0x10b981;
+
+  const fields = [
+    toField("Method", method),
+    toField("Path", path, false),
+    toField("Status", String(status)),
+    toField("Duration", `${durationMs}ms`),
+    toField("Access", accessAuthed ? "ok" : "none"),
+    toField("IP", ip),
+    toField("Country", country),
+    toField("Origin", origin, false),
+    toField("Referer", referer, false),
+    toField("User-Agent", userAgent, false),
+    toField("Ray", rayId),
   ].filter(Boolean);
 
-  return truncate(lines.join("\n"), MAX_CONTENT_LENGTH);
+  return {
+    accessAuthed,
+    content: shouldMention && mentionId ? `<@${mentionId}>` : undefined,
+    embeds: [
+      {
+        title: "LifeLog API",
+        color,
+        fields,
+        timestamp: new Date().toISOString(),
+      },
+    ],
+    allowed_mentions: shouldMention && mentionId
+      ? { parse: [], users: [mentionId] }
+      : { parse: [] },
+  };
 }
 
 export function queueAuditLog(
@@ -49,10 +94,7 @@ export function queueAuditLog(
   const webhookUrl = c.env.AUDIT_WEBHOOK_URL;
   if (!webhookUrl) return;
 
-  const payload = {
-    content: buildAuditContent(c, durationMs),
-    allowed_mentions: { parse: [] as string[] },
-  };
+  const payload = buildAuditPayload(c, durationMs);
 
   const send = fetch(webhookUrl, {
     method: "POST",
