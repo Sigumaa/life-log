@@ -23,6 +23,7 @@ function buildAuditPayload(
   durationMs: number,
 ): {
   accessAuthed: boolean;
+  content?: string;
   embeds: Array<Record<string, unknown>>;
   allowed_mentions: { parse: string[]; users?: string[] };
 } {
@@ -61,17 +62,10 @@ function buildAuditPayload(
 
   const descriptionLines = [
     `${statusEmoji} \`${method}\` \`${path}\``,
-    `Status: **${status}** • Duration: **${durationMs}ms**`,
-    shouldMention && mentionId ? `Access: **none** <@${mentionId}>` : `Access: **${accessAuthed ? "ok" : "none"}**`,
+    `Status: **${status}** • Duration: **${durationMs}ms** • Access: **${
+      accessAuthed ? "ok" : "none"
+    }**`,
   ];
-
-  const requestField = toField(
-    "Request",
-    [`Method: ${method}`, `Path: ${path}`, `Status: ${status}`, `Duration: ${durationMs}ms`].join(
-      "\n",
-    ),
-    false,
-  );
 
   const clientField = toField(
     "Client",
@@ -93,16 +87,16 @@ function buildAuditPayload(
     false,
   );
 
-  const agentField = toField("User-Agent", userAgent, false);
+  const agentField =
+    !accessAuthed || status >= 400 ? toField("User-Agent", userAgent, false) : null;
 
-  const metaField = toField(
+  const metaField = rayId || host ? toField(
     "Meta",
     [rayId ? `Ray: ${rayId}` : null, host ? `Host: ${host}` : null].filter(Boolean).join("\n"),
     true,
-  );
+  ) : null;
 
   const fields = [
-    requestField,
     clientField,
     headersField,
     agentField,
@@ -111,6 +105,7 @@ function buildAuditPayload(
 
   return {
     accessAuthed,
+    content: shouldMention && mentionId ? `<@${mentionId}>` : undefined,
     embeds: [
       {
         title: "LifeLog API Audit",
