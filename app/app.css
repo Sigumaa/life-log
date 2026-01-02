@@ -1618,6 +1618,10 @@ body {
     border-top: 1px solid #f3f4f6;
   }
 
+  .log-filters {
+    display: none;
+  }
+
   .quick-buttons-row {
     justify-content: center;
   }
